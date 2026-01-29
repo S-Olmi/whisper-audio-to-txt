@@ -1,0 +1,16 @@
+# --- Core AI & Audio ---
+faster-whisper==1.2.1
+pydub==0.25.1
+deepmultilingualpunctuation==1.0.1
+tqdm==4.67.1
+
+# --- API & Server ---
+fastapi==0.122.0
+uvicorn==0.30.1
+python-multipart==0.0.20
+python-dotenv==1.0.1
+
+# --- Utils ---
+pydantic==2.12.4
+pytest
+numpy

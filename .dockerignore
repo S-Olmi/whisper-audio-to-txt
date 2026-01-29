@@ -1,0 +1,9 @@
+.venv/
+.env
+*.log
+__pycache__/
+data/
+tests/
+.gitignore
+.env.example
+whisper_app.log

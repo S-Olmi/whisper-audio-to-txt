@@ -1,0 +1,16 @@
+# PyCharm / IntelliJ
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+.env
+
+# Other
+data/
+whisper_app.log
