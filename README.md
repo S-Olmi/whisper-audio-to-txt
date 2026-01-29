@@ -15,7 +15,7 @@ The project focuses on robustness and production-oriented concerns such as memor
   N-gram–based post-processing removes repeated segments and Whisper hallucinations introduced during chunk merging.
 
 - **Punctuation restoration**  
-  Integration of *DeepMultilingualPunctuation* with a local patch to ensure compatibility with `transformers >= 4.30`.
+  Integration of *DeepMultilingualPunctuation* (applied to selected languages only) with a local patch to ensure compatibility with `transformers >= 4.30`.
 
 - **Audio preprocessing**  
   All input files are automatically:
@@ -55,20 +55,22 @@ The API returns a structured JSON response:
 ```json
 {
   "filename": "STROIE5483928404.mp3",
+  "language": "en",
   "status": "ok",
   "refined_text": "Close your eyes, exhale, feel your body, relax and let go of whatever you're carrying. Today, well, I'm letting go of the worry that I wouldn't get my new contacts in time for..."
 }
 ```
 
-- **filename**: original uploaded file name  
+- **filename**: original uploaded file name 
+- **language**: language code used for transcription (e.g. `it`, `fr`, `en`, `de`, ...)
 - **status**: transcription status  
-- **refined_text**: cleaned and punctuation-restored transcription
+- **refined_text**: cleaned transcription (with punctuation restoration when supported)
 
 ---
 
 ## Input Example
 
-The input is a **real audio file** (any supported format).  
+The input consists of a **real audio file** (any supported format) and an optional `language` query parameter (str, default: `it`)  
 There is no fixed duration limit; processing time scales linearly with file length.
 
 All audio formats are supported as long as they can be decoded by FFMPEG, since every file is converted to a normalized `.wav` during preprocessing.
@@ -151,17 +153,23 @@ pytest tests/
 
 ---
 
+## Logging
+
+The API logs authentication attempts and useful information both in the terminal and on a file named "whisper_app.log"
+The logging level can be changed in the local environment file (e.g. `DEBUG`) for additional details.
+
 ## Technical Notes
 
 The project includes a local patch for the `PunctuationModel` class.
 
 The modification fixes the token aggregation logic (`grouped_entities`) to align with current `transformers` standards, avoiding dependency pinning to legacy versions and ensuring forward compatibility.
 
+Punctuation is applied only for the following languages: `it`, `fr`, `de`, `en`
+
 ---
 
 ## Roadmap
 
-- Multilingual transcription support (EN, FR, DE)  
 - Simultaneous translation into Italian  
 - Asynchronous streaming transcription via WebSocket  
 - Explicit CPU / GPU selection via Swagger UI
