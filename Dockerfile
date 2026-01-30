@@ -9,8 +9,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+RUN python -c "from faster_whisper import WhisperModel; WhisperModel('large-v3-turbo', device='cpu'); from src.deepmultilingualpunctuation import PunctuationModel; PunctuationModel()"
+
 COPY src/ ./src/
 COPY main.py .
+
+ENV HF_HUB_OFFLINE=1
+ENV TRANSFORMERS_OFFLINE=1
 
 EXPOSE 8000
 

@@ -2,7 +2,6 @@ from faster_whisper import WhisperModel
 from pydub import AudioSegment
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from src.punctuationmodel import PunctuationModel
 import threading
 import time
 import os
@@ -22,15 +21,23 @@ logger = logging.getLogger(__name__)
 # MODELS
 # ============================
 
-punct = PunctuationModel()
+SUPPORTED_PUNCT_LANGS = ["it", "en", "fr", "de"]
+
+def load_whisper_model(flag:bool, model_name="large-v3-turbo", device="cpu"):
+    return WhisperModel(model_name, device=device, compute_type="int8", local_files_only=flag)
 
 
-def load_model(model_name="large-v3-turbo", device="cpu"):
-    return WhisperModel(model_name, device=device, compute_type="int8")
+def refine_text(text: str, punct_model, language: str) -> str:
+    """Apply punctuations if the language is supported."""
+    if not text.strip():
+        return text
 
+    if language.lower() in SUPPORTED_PUNCT_LANGS and punct_model is not None:
+        logger.info(f"Punctuation has been restored for the language: {language}")
+        return punct_model.restore_punctuation(text)
 
-def refine_text(text: str) -> str:
-    return punct.restore_punctuation(text) if text.strip() else text
+    logger.warning(f"Punctuation restoration has been skipped: {language} is not supported for the NLP model.")
+    return text
 
 
 # ============================
@@ -62,7 +69,7 @@ def _transcribe_file(model, wav_path, language="it"):
 # DYNAMIC TRANSCRIPTION
 # ============================
 
-def transcribe_dynamic(model, audio_path, language="it",
+def transcribe_dynamic(whisper_model, punct_model, audio_path, language,
                        threshold_minutes=30, chunk_duration_sec=300,
                        max_workers=4):
 
@@ -72,18 +79,20 @@ def transcribe_dynamic(model, audio_path, language="it",
 
     if duration_min < threshold_minutes:
         logger.info("Use RAM mode for small files.")
-        return transcribe_to_ram(model, audio_path, language)
+        raw_text = transcribe_to_ram(whisper_model, audio_path, language)
     else:
         logger.info(f"Use STREAMING (chunking) mode for large files.")
-        return transcribe_streaming(model, audio_path, language,
+        raw_text = transcribe_streaming(whisper_model, audio_path, language,
                                     chunk_duration_sec, max_workers)
+
+    return refine_text(raw_text, punct_model, language)
 
 
 # ============================
 # SMALL FILES (RAM MODE)
 # ============================
 
-def transcribe_to_ram(model, audio_path, language="it"):
+def transcribe_to_ram(whisper_model, audio_path, language):
     print("RAM mode (small file)")
 
     audio = preprocess_audio(audio_path)
@@ -97,7 +106,7 @@ def transcribe_to_ram(model, audio_path, language="it"):
 
     def worker():
         nonlocal results
-        segments = _transcribe_file(model, tmp_path, language)
+        segments = _transcribe_file(whisper_model, tmp_path, language)
         with lock:
             results.extend(segments)
         done_event.set()
@@ -142,7 +151,7 @@ def transcribe_to_ram(model, audio_path, language="it"):
 # LARGE FILES (STREAMING MODE)
 # ============================
 
-def transcribe_streaming(model, audio_path, language="it",
+def transcribe_streaming(whisper_model, audio_path, language="it",
                          chunk_duration_sec=300, max_workers=4):
 
     print("STREAMING mode (large file) with chunking and parallelization")
@@ -173,7 +182,7 @@ def transcribe_streaming(model, audio_path, language="it",
     def worker(idx, audio_chunk):
         tmp_path = _export_to_temp_wav(audio_chunk)
         try:
-            segments = _transcribe_file(model, tmp_path, language)
+            segments = _transcribe_file(whisper_model, tmp_path, language)
             text = " ".join(seg.text for seg in segments)
             return idx, text
         finally:

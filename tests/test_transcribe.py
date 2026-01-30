@@ -39,13 +39,12 @@ def test_refine_text_calls_punct(monkeypatch):
 
     dummy = DummyPunct()
 
-    import src.transcribe as tr
-    monkeypatch.setattr(tr, "punct", dummy)
+
 
     # normal test
-    assert refine_text("hello world") == "HELLO WORLD"
+    assert refine_text("hello world", dummy, 'it') == "HELLO WORLD"
     # empty string test
-    assert refine_text("   ") == "   "
+    assert refine_text("   ", dummy, 'it') == "   "
 
 
 # ============================
@@ -93,5 +92,5 @@ def test_transcribe_to_ram_mock(monkeypatch):
     monkeypatch.setattr("src.transcribe._transcribe_file", lambda model, path, language="it": [DummySegment()])
     monkeypatch.setattr("src.transcribe.preprocess_audio", lambda path: audio)
 
-    result = transcribe_to_ram(DummyModel(), "fake_path.wav")
+    result = transcribe_to_ram(DummyModel(), "fake_path.wav", language="it")
     assert "transcribed text" in result

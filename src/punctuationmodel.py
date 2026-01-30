@@ -45,7 +45,7 @@ class PunctuationModel():
         if len(batches[-1]) <= overlap:
             batches.pop()
 
-        logger.debug(f"Predizione punteggiatura su {len(words)} parole suddivise in {len(batches)} batch.")
+        logger.debug(f"Punctuation prediction on {len(words)} words, divided in {len(batches)} batches.")
 
         tagged_words = []
         for batch in batches:
