@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 SUPPORTED_PUNCT_LANGS = ["it", "en", "fr", "de"]
 
-def load_whisper_model(flag:bool, model_name="large-v3-turbo", device="cpu"):
+def load_whisper_model(flag:bool, model_name, device="cpu"):
     return WhisperModel(model_name, device=device, compute_type="int8", local_files_only=flag)
 
 

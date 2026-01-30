@@ -39,6 +39,18 @@ At the same time, it served as a hands-on exploration of modern speech-to-text p
 
 ---
 
+## Models Used
+
+The application uses models optimized for local execution and maximum CPU/GPU efficiency:
+
+* **Transcription**: [dropbox-dash/faster-whisper-large-v3-turbo](https://huggingface.co/dropbox-dash/faster-whisper-large-v3-turbo)
+*This is a conversion of the OpenAI Large-v3-Turbo model to the CTranslate2 format, which provides up to 4x faster transcription speed.*
+
+* **Punctuation**: [oliverguhr/fullstop-punctuation-multilang-large](https://huggingface.co/oliverguhr/fullstop-punctuation-multilang-large)
+*Multilingual BERT model for restoring commas, periods, and question marks.*
+
+---
+
 ## System Architecture
 
 1. **Ingestion**  
