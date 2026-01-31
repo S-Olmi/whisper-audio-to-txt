@@ -9,7 +9,15 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN python -c "from faster_whisper import WhisperModel; WhisperModel('dropbox-dash/faster-whisper-large-v3-turbo', device='cpu'); from src.deepmultilingualpunctuation import PunctuationModel; PunctuationModel()"
+RUN python -c "\
+from faster_whisper import WhisperModel; \
+WhisperModel('dropbox-dash/faster-whisper-large-v3-turbo', device='cpu'); \
+from src.punctuationmodel import PunctuationModel; \
+PunctuationModel(); \
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM; \
+m='facebook/nllb-200-distilled-600M'; \
+AutoTokenizer.from_pretrained(m); \
+AutoModelForSeq2SeqLM.from_pretrained(m)"
 
 COPY src/ ./src/
 COPY main.py .

@@ -1,6 +1,6 @@
-# Audio Transcription Service (Faster-Whisper)
+# Audio Transcription & Translation Service (Faster-Whisper + NLLB)
 
-A local audio transcription service based on **Faster-Whisper** with **automatic punctuation restoration**, optimized for large audio files through a custom chunk-based processing pipeline. It is designed to run locally, with full offline support and intelligent large file handling.
+A local audio transcription service based on **Faster-Whisper** with **automatic punctuation restoration and optional multilingual text translation**, optimized for large audio files through a custom chunk-based processing pipeline. It is designed to run locally, with full offline support and intelligent large file handling.
 
 The project focuses on robustness and production-oriented concerns such as memory management, chunk-based parallel inference, text deduplication, and punctuation restoration, delivering clean and structured output ready for downstream use.
 
@@ -37,6 +37,9 @@ At the same time, it served as a hands-on exploration of modern speech-to-text p
 - **Security (demonstrative)**
   Bearer Token authentication is implemented **for demonstration purposes only**, to showcase basic API security practices in a local-only environment.
 
+- **Text translation**
+  Optional post-transcription translation powered by Meta’s NLLB-200 model, supporting translation between 200 languages with full offline execution.
+
 ---
 
 ## Models Used
@@ -48,6 +51,9 @@ The application uses models optimized for local execution and maximum CPU/GPU ef
 
 * **Punctuation**: [oliverguhr/fullstop-punctuation-multilang-large](https://huggingface.co/oliverguhr/fullstop-punctuation-multilang-large)
 *Multilingual BERT model for restoring commas, periods, and question marks.*
+
+* **Translation**: [facebook/nllb-200-distilled-600M](https://huggingface.co/facebook/nllb-200-distilled-600M)
+*Multilingual distilled variant of Meta’s NLLB-200 neural machine translation model for offline text-to-text translation between 200 languages, optimized for reduced memory footprint (600M parameters).*
 
 ---
 
@@ -63,10 +69,10 @@ The application uses models optimized for local execution and maximum CPU/GPU ef
    Parallel transcription of audio chunks using Faster-Whisper.
 
 4. **Refinement**  
-   Deduplication and punctuation restoration.
+   Deduplication and punctuation restoration, and optional text translation.
 
 5. **Delivery**  
-   Structured JSON output returned via REST endpoints.
+   Structured JSON output returned via REST endpoints, including translated text when requested.
 
 ---
 
@@ -87,6 +93,20 @@ The API returns a structured JSON response:
 - **language**: language code used for transcription (e.g. `it`, `fr`, `en`, `de`, ...)
 - **status**: transcription status  
 - **refined_text**: cleaned transcription (with punctuation restoration when supported)
+
+
+```json
+{
+  "original_text": "Pour résider et pour négocier dans des territoires musulmans comme Tunis et Alexandrie...",
+  "translated_text": "Per resistere e negoziare in territori musulmani come Tunisi e Alessandria...",
+  "source_lang": "fr",
+  "target_lang": "it"
+}
+```
+- **original_text**: original version of the refined transcription
+- **translated_text**: translated version of the refined transcription
+- **source_lang**: language of the original text 
+- **target_lang**: language of the final text
 
 ---
 
@@ -109,7 +129,7 @@ The service is fully containerized and includes all required system dependencies
 cp .env.example .env
 ```
 
-Set an `API_TOKEN` inside the `.env` file.  
+Set an `API_TOKEN` inside the `.env` file. Set also if you want to run the script using a cpu or cuda (GPU).
 Even though the service runs locally, the token must be provided when calling the API (via Swagger).
 
 ---
@@ -133,7 +153,7 @@ The Docker image already includes the required model weights and runs fully offl
 cp .env.example .env
 ```
 
-Set an `API_TOKEN` inside the `.env` file.  
+Set an `API_TOKEN` inside the `.env` file. Set also if you want to run the script using a cpu or cuda (GPU).
 Even though the service runs locally, the token must be provided when calling the API (via Swagger).
 
 ---
@@ -199,11 +219,6 @@ This workflow is recommended and reflects how the service was developed and test
 
 - The **default configuration runs on CPU**, as the project was developed on a machine without a GPU.
 - If a GPU is available, transcription would be significantly faster.
-- GPU support may already be partially automatic, depending on the underlying Faster-Whisper configuration.
-
-### Planned improvement
-
-Expose a **CPU / GPU selection option directly in Swagger**, allowing both execution modes to coexist.
 
 ---
 
@@ -235,13 +250,14 @@ The modification fixes the token aggregation logic (`grouped_entities`) to align
 
 Punctuation is applied only for the following languages: `it`, `fr`, `de`, `en`
 
+The translation pipeline is fully decoupled from transcription and operates on refined text output.
+
 ---
 
 ## Roadmap
 
-- Simultaneous translation into Italian  
-- Asynchronous streaming transcription via WebSocket  
-- Explicit CPU / GPU selection via Swagger UI
+- Extended translation workflows (batch translation) 
+- Asynchronous streaming transcription via WebSocket
 
 ---
 
@@ -250,10 +266,10 @@ Punctuation is applied only for the following languages: `it`, `fr`, `de`, `en`
 - **Limited punctuation language support**  
   Punctuation restoration is currently available only for `it`, `fr`, `de`, and `en`, due to model constraints.
 
-- **Translation target language constraints**  
-  Whisper natively supports translation only into English.  
-  Supporting multiple target languages would require loading additional models, significantly increasing memory usage.  
-  For this reason, future translation features will focus primarily on Italian.
+- **Translation performance vs memory trade-off**  
+  Multilingual translation is handled by a separate NLLB-200 model.  
+  While highly flexible, translation increases memory usage and latency compared to transcription-only workflows.
+
 
 - **Model size vs accuracy trade-off**  
   The service uses the `whisper-turbo` model instead of the original large-v3 model.  

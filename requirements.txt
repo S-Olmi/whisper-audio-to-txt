@@ -3,6 +3,8 @@ faster-whisper==1.2.1
 pydub==0.25.1
 deepmultilingualpunctuation==1.0.1
 tqdm==4.67.1
+sentencepiece
+transformers
 
 # --- API & Server ---
 fastapi==0.122.0

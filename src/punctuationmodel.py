@@ -6,14 +6,19 @@ from transformers import pipeline
 import re
 import torch
 import logging
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")
 
 logger = logging.getLogger(__name__)
 
 
 class PunctuationModel():
     def __init__(self, model="oliverguhr/fullstop-punctuation-multilang-large") -> None:
-        device = 0 if torch.cuda.is_available() else -1
-        logger.info(f"Inizializzazione PunctuationModel su {'GPU' if device == 0 else 'CPU'}")
+        device = 0 if WHISPER_DEVICE=='cuda' else -1
+        logger.info(f"Initializing PunctuationModel on {'GPU' if device == 0 else 'CPU'}")
         self.pipe = pipeline("ner", model, aggregation_strategy="none", device=device)
 
     def preprocess(self, text):

@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 SUPPORTED_PUNCT_LANGS = ["it", "en", "fr", "de"]
 
-def load_whisper_model(flag:bool, model_name, device="cpu"):
+def load_whisper_model(flag:bool, model_name, device):
     return WhisperModel(model_name, device=device, compute_type="int8", local_files_only=flag)
 
 
@@ -84,6 +84,7 @@ def transcribe_dynamic(whisper_model, punct_model, audio_path, language,
         logger.info(f"Use STREAMING (chunking) mode for large files.")
         raw_text = transcribe_streaming(whisper_model, audio_path, language,
                                     chunk_duration_sec, max_workers)
+
 
     return refine_text(raw_text, punct_model, language)
 
