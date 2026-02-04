@@ -7,7 +7,7 @@ An offline-first, silence-aware audio processing engine designed for long-form t
 # Quick Start
 ```bash
 # 1. Clone & Navigate
-git clone https://github.com/S-Olmi/whisper-audio-to-txt (https://github.com/S-Olmi/whisper-audio-to-txt) && cd whisper-audio-to-txt
+git clone https://github.com/S-Olmi/whisper-audio-to-txt && cd whisper-audio-to-txt
 
 # 2.Copy the template and fill in your `API_TOKEN`
 cp .env.example .env
