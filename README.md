@@ -9,28 +9,36 @@ The system is architected as a linear data pipeline with conditional heuristic b
 
 ```mermaid
 graph TD
-    A[Audio Input] --> B{Duration > 30 min?}
-    
+    %% Entry Points
+    In1[Audio Input] --> B{Duration > 30 min?}
+    In2[Text Input] --> MT_Proc
+
+    %% Audio Processing Layer
     B -->|No| C[Single Pass Processing]
     B -->|Yes| D[RMS-based Silence Detection]
-    
     D --> E[Intelligent Chunking]
     E --> F[Inference Orchestrator]
     
-    C --> G{Endpoint Selection}
+    C --> G[Whisper Turbo Engine]
     F --> G
     
-    subgraph ASR [Transcription Task]
-        G --> H[Whisper Turbo]
-        H --> J[Punctuation Restoration Patch]
+    %% Decision Node
+    G --> ASR_Out[Source Text]
+    
+    %% Transition to Translation
+    ASR_Out -->|Auto-Pipe| MT_Proc
+    
+    subgraph MT [Translation Task: NLLB-200]
+        MT_Proc[Translation]
     end
     
-    subgraph MT [Translation Task]
-        G --> I[Whisper Turbo + NLLB-200]
+    subgraph ASR [Transcription Task: Whisper]
+        G
+        ASR_Out --> J[Punctuation Restoration]
     end
     
-    J --> K[Final Output]
-    I --> K
+    J --> Out1[Final Transcript]
+    MT_Proc --> Out2[Translated Text]
 ```
 
 ### Data Pipeline Approach
@@ -75,6 +83,9 @@ Traditional fixed-length chunking (e.g., every 30s) often cuts off sentences mid
 
 ### Security Foresight: Constant-Time Validation
 Even though the current version runs locally, I implemented `secrets.compare_digest` for token comparison. This prevents **timing attacks**, a critical vulnerability in production environments where an attacker could guess a token by measuring response times. This reflects a "Production-First" mindset, preparing the CLI for a future microservice transition.
+
+### Decoupled Input Orchestration
+To maximize system usability, the translation endpoint was designed to be input-agnostic. It implements orchestration logic that reuses the ASR pipeline as a data provider for the NLLB translation engine. This reduces code duplication and enables end-to-end translation from audio sources, while addressing latency limitations through model caching.
 
 ---
 

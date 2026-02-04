@@ -68,8 +68,9 @@ os.environ["HF_HUB_OFFLINE"] = "1"
 
 import tempfile
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Security, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Security, Query, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Optional
 
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
 
@@ -321,7 +322,8 @@ async def transcribe_endpoint(
 
 @app.post("/translate")
 async def translate_endpoint(
-        text: str = Query(..., description="Text to translate"),
+        text: Optional[str] = Form(None, description="Direct text to translate"),
+        audio_file: Optional[UploadFile] = File(None, description="Audio file to transcribe and translate"),
         src_lang: WhisperLanguage = Query(
         WhisperLanguage.fr,
         description="Source language (ISO code)"
@@ -332,11 +334,31 @@ async def translate_endpoint(
         ),
         _: bool = Depends(validate_token),
         assets = Depends(get_translation_assets),
+        whisper_model = Depends(get_whisper_model),
+        punct_model = Depends(get_punct_model),
 ):
     tokenizer, model = assets
-    try:
 
-        sentences = split_sentences(text)
+    source_text = ""
+
+    try:
+        if audio_file:
+            logger.info(f"Processing audio input for translation: {audio_file.filename}")
+            tmp_path = await save_temp_file(audio_file)
+            transcription_result =  transcribe_dynamic(
+            whisper_model,
+            punct_model,
+            tmp_path,
+            language=src_lang.value,
+        )
+            source_text = transcription_result
+        elif text:
+            source_text = text
+        else:
+            raise HTTPException(status_code=400, detail="Provide either 'text' or 'audio_file'")
+
+
+        sentences = split_sentences(source_text)
         translated_sentences = []
 
         src_code = get_nllb_code(src_lang)
@@ -361,7 +383,8 @@ async def translate_endpoint(
         final_result = " ".join(translated_sentences)
 
         return {
-            "original_text": text,
+            "input_type": "audio" if audio_file else "text",
+            "original_text": source_text,
             "translated_text": final_result,
             "source_lang": src_lang.value,
             "target_lang": tgt_lang.value,
