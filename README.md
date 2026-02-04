@@ -4,6 +4,50 @@ An offline-first, silence-aware audio processing engine designed for long-form t
 
 ---
 
+# Quick Start
+```bash
+# 1. Clone & Navigate
+git clone https://github.com/S-Olmi/whisper-audio-to-txt (https://github.com/S-Olmi/whisper-audio-to-txt) && cd whisper-audio-to-txt
+
+# 2.Copy the template and fill in your `API_TOKEN`
+cp .env.example .env
+
+# 3.Build the engine and Run with environment injection
+docker build -t whisper-api .
+docker run -d -p 8000:8000 --env-file .env --name whisper-service whisper-api
+
+# 4. Test it (Transcription)
+curl -X POST http://localhost:8000/transcribe -F "file=@your_audio.mp3"
+```
+For detailed configuration and advanced parameters, see [Usage](#usage)
+
+---
+
+## Models Used
+| Component       | Model              | Task          | Why this choice?                                   |
+|-----------------|--------------------|---------------|----------------------------------------------------|
+| **ASR**         | `Whisper Turbo`      | Transcription | Best-in-class Speed/Accuracy ratio.                |
+| **Translation** | `NLLB-200-distilled` | Any-to-Any MT | Handles 200+ languages with low VRAM footprint.    |
+| **Punctuation** | `PunctuationModel`   | Restoration   | Custom patched to handle legacy dependency breaks. |
+
+---
+
+## Engineering Highlights
+
+- **Dynamic Silence-Aware Chunking**  
+Optimized processing for long-form audio (>30 min) using RMS-based silence detection. This prevents word-clipping and hallucinations while maintaining memory efficiency.
+
+- **Decoupled ASR & Translation**  
+**Meta’s NLLB-200**, enabling high-quality "any-to-any" translation despite the base model's limitations.
+
+- **Offline-First & Privacy-Centric**  
+Fully local execution with lazy model loading and caching, ensuring zero data leakage and zero API costs.
+
+- **Security-First Design**
+Implementation of constant-time token validation to prevent side-channel attacks, ready for cloud-edge deployment.
+ 
+---
+
 ## System Architecture
 The system is architected as a linear data pipeline with conditional heuristic branching. Instead of a naive "file-to-model" approach, it evaluates the audio telemetry (RMS levels and duration) to determine the most efficient processing strategy, ensuring data integrity and minimizing hallucinations before reaching the inference engines.
 
@@ -46,29 +90,17 @@ Unlike standard wrappers, this pipeline implements a **Pre-Inference Analysis** 
 
 ---
 
-## Models Used
-| Component       | Model              | Task          | Why this choice?                                   |
-|-----------------|--------------------|---------------|----------------------------------------------------|
-| **ASR**         | `Whisper Turbo`      | Transcription | Best-in-class Speed/Accuracy ratio.                |
-| **Translation** | `NLLB-200-distilled` | Any-to-Any MT | Handles 200+ languages with low VRAM footprint.    |
-| **Punctuation** | `PunctuationModel`   | Restoration   | Custom patched to handle legacy dependency breaks. |
+## Logic Validation: Smart Chunking
+The **Smart Chunking** logic is triggered for files > 30 minutes to optimize VRAM usage while maintaining transcription context.
 
----
+| Feature | Standard Slicing (Fixed 30m)  | Smart Chunking (Silence-aware)         |
+| :--- |:------------------------------|:---------------------------------------|
+| **Boundary Logic** | Arbitrary at 1800.0s          | Dynamic (searches for RMS < threshold) |
+| **Context Retention** | Risks cutting sentences/words | Preserves linguistic units             |
+| **VRAM Efficiency** | Constant                      | Optimized per chunk density            |
 
-## Engineering Highlights
+> **Analysis:** In a 60-minute test file, fixed slicing caused a break during a 0.5s word pronunciation. The RMS logic shifted the split point by 2.4s to a natural pause, eliminating "fragmentation hallucinations" in the Whisper output.
 
-- **Dynamic Silence-Aware Chunking**  
-Optimized processing for long-form audio (>30 min) using RMS-based silence detection. This prevents word-clipping and hallucinations while maintaining memory efficiency.
-
-- **Decoupled ASR & Translation**  
-**Meta’s NLLB-200**, enabling high-quality "any-to-any" translation despite the base model's limitations.
-
-- **Offline-First & Privacy-Centric**  
-Fully local execution with lazy model loading and caching, ensuring zero data leakage and zero API costs.
-
-- **Security-First Design**
-Implementation of constant-time token validation to prevent side-channel attacks, ready for cloud-edge deployment.
-  
 ---
 
 ## Technical Challenges & Decisions
@@ -102,6 +134,30 @@ By choosing a local-first approach, the system requires a GPU/CPU with sufficien
 
 ---
 
+## Usage
+### 1. Transcription (Audio to Text)
+Standard ASR pipeline with punctuation restoration.
+```bash
+curl -X POST http://localhost:8000/transcribe \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "file=@meeting_audio.wav"
+  ```
+### 2. Unified Translation
+#### Case A: From Audio File
+```bash
+curl -X POST http://localhost:8000/translate \
+  -F "audio_file=@french_interview.mp3" \
+  -F "src_lang=fr" -F "tgt_lang=it"
+  ```
+#### Case B: From Raw Text
+```bash
+curl -X POST http://localhost:8000/translate \
+  -F "text=Bonjour tout le monde" \
+  -F "src_lang=fr" -F "tgt_lang=it"
+  ```
+
+---
+
 ## Production Roadmap
 To transition this pipeline from a standalone tool to a high-availability service, the following architectural steps are planned:
 - **Request Queueing**: Moving from synchronous processing to an **asynchronous task-based system**. This would allow handling multiple concurrent user uploads without overloading the GPU/CPU.
@@ -110,7 +166,8 @@ To transition this pipeline from a standalone tool to a high-availability servic
 - **Inference Optimization**: Exploring **Batch Processing** to maximize GPU throughput, ensuring that multiple short audio streams are processed in parallel within a single model forward pass.
 
 ---
-# Getting started and Usage
+
+# Detailed Installation
 
 ## Running the Service (Docker)
 
@@ -210,8 +267,9 @@ This workflow is recommended and reflects how the service was developed and test
 
 ## Output Format (Example)
 
-The API returns a structured JSON response:
+The API returns a structured JSON response.
 
+-1. Transcribe Endpoint:
 ```json
 {
   "filename": "STROIE5483928404.mp3",
@@ -226,15 +284,17 @@ The API returns a structured JSON response:
 - **status**: transcription status  
 - **refined_text**: cleaned transcription (with punctuation restoration when supported)
 
-
+-2. Translate Endpoint:
 ```json
 {
+   "input_type": "audio (text)",
   "original_text": "Pour résider et pour négocier dans des territoires musulmans comme Tunis et Alexandrie...",
   "translated_text": "Per resistere e negoziare in territori musulmani come Tunisi e Alessandria...",
   "source_lang": "fr",
   "target_lang": "it"
 }
 ```
+- **input_type**: "audio" if the input to translate is an audio file, "text" if the input is a str of text
 - **original_text**: original version of the refined transcription
 - **translated_text**: translated version of the refined transcription
 - **source_lang**: language of the original text 
